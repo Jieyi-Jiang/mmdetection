@@ -212,16 +212,53 @@ class DetectionTransformer(BaseDetector, metaclass=ABCMeta):
             includes the `hidden_states` of the decoder output and may contain
             `references` including the initial and intermediate references.
         """
+        # 1.
+        # pre_transformer（输入预处理），把 CNN 特征变成 Transformer 能用的形式； 
+        ## 同时，生成：positional encoding（位置编码），mask（padding mask）
+        # output: 
+        ## (1) encoder_inputs_dict - 
+        ##       给编码器用 {feat(bs,HW,C), pos(bs,HW,C), mask(bs,HW)}
+        ## (2) decoder_inputs_dict - 给解码器用 {query(可能没有完全生成)}
         encoder_inputs_dict, decoder_inputs_dict = self.pre_transformer(
             img_feats, batch_data_samples)
-
+        
+        # 2.
+        # encoder，self-attention（全局特征建模）
+        ## output: encoder_outputs_dict(memory): (bs,HW,C)
         encoder_outputs_dict = self.forward_encoder(**encoder_inputs_dict)
 
+        # 3.
+        # pre_decoder（关键！！！DETR核心之一）：
+        ## (1) 生成 queries ( learnable queries(DETR) 
+        ##     或 top-k proposals(DINO, RT-DETR) )
+        ## (2) 生成 reference，表示 query 对应的初始位置（非常重要）：
+        ##     reference_points = (bs, num_queries, 2 or 4)
+        ## (3) 初始化 head_inputs_dict：head_inputs_dict = { "references": ... }
+        # output:
+        ## (1) tmp_dec_in - 给 decoder
+        ## (2) head_inputs_dict - 提前准备给 head
         tmp_dec_in, head_inputs_dict = self.pre_decoder(**encoder_outputs_dict)
+        
+        # 4.
+        # 拼接 decoder 输入：
+        ## 把 （ecoder的信息，query，reference）合并成 decoder 的输入
         decoder_inputs_dict.update(tmp_dec_in)
 
+        # 5.
+        # decoder（最核心模块）
+        ## 每层 decoder 做：query ↔ memory（cross attention）
+        # output:
+        ## (1) hidden_states (num_layers, bs, num_queries, C): 用来分类/回归
+        ## (2) references：每层 refine 后的 bbox（bbox refinement）
         decoder_outputs_dict = self.forward_decoder(**decoder_inputs_dict)
+        
+        # 6.
+        # 更新 head 输入
+        # head_inputs_dict = {
+        #    hidden_states: ...,
+        #    references: ..., }
         head_inputs_dict.update(decoder_outputs_dict)
+        
         return head_inputs_dict
 
     def extract_feat(self, batch_inputs: Tensor) -> Tuple[Tensor]:
