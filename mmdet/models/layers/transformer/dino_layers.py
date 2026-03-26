@@ -184,6 +184,7 @@ class CdnQueryGenerator(BaseModule):
         # TODO: num_classes + 1 or num_classes ?
         self.label_embedding = nn.Embedding(self.num_classes, self.embed_dims)
 
+    # 让类像函数一样被调用
     def __call__(self, batch_data_samples: SampleList) -> tuple:
         """Generate contrastive denoising (cdn) queries with ground truth.
 

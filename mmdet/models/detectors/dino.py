@@ -171,6 +171,10 @@ class DINO(DeformableDETR):
         cls_out_features = self.bbox_head.cls_branches[
             self.decoder.num_layers].out_features
 
+        # 给特征图的每一个特征生成都生成 proposal
+        # 搞分辨率特征生成小预测框，低分辨率特征生成大预测框
+        # output_memory - feature embedding，相当于特征全局特征融合后的特征
+        # output_proposals - 初始预测框（inverse-normalized proposal）
         output_memory, output_proposals = self.gen_encoder_output_proposals(
             memory, memory_mask, spatial_shapes)
         enc_outputs_class = self.bbox_head.cls_branches[
