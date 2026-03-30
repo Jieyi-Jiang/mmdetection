@@ -117,12 +117,9 @@ class DINO(DeformableDETR):
 
         # 这里和 base_detr 不同
         ## 这里把 batch_data_samples（GT信息） 送进 pre_decoder 中
-        ## DN/CDN 需要 GT 信息进行加噪声的过程
-        # pre_decoder() 除了上面这些，还负责：
-        ## (1) 根据 GT 构造 denoising queries
-        ## (2) 构造 attention mask
-        ## (3) 把 normal query 和 dn query 拼起来
-        ## (4) 准备 DN loss 需要的元信息
+        # dn_query 在 tmp_dec_in 里面
+        # dn_query = {query, memory, reference_points, dn_mask}
+        # head_inputs_dict 里面是 { topk_score，topk_coords，dn_meta }
         tmp_dec_in, head_inputs_dict = self.pre_decoder(
             **encoder_outputs_dict, batch_data_samples=batch_data_samples)
         decoder_inputs_dict.update(tmp_dec_in)
@@ -200,6 +197,8 @@ class DINO(DeformableDETR):
 
         query = self.query_embedding.weight[:, None, :]
         query = query.repeat(1, bs, 1).transpose(0, 1)
+        
+        # 这里生成 dn_query 
         if self.training:
             dn_label_query, dn_bbox_query, dn_mask, dn_meta = \
                 self.dn_query_generator(batch_data_samples)

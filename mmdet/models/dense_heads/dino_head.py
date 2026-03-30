@@ -69,8 +69,10 @@ class DINOHead(DeformableDETRHead):
             batch_gt_instances.append(data_sample.gt_instances)
 
         outs = self(hidden_states, references)
+        # 这里增加了 dn_meta
         loss_inputs = outs + (enc_outputs_class, enc_outputs_coord,
                               batch_gt_instances, batch_img_metas, dn_meta)
+        # 由上面推测，真正改变的是 loss_by_feat
         losses = self.loss_by_feat(*loss_inputs)
         return losses
 
@@ -120,6 +122,7 @@ class DINOHead(DeformableDETRHead):
             dict[str, Tensor]: A dictionary of loss components.
         """
         # extract denoising and matching part of outputs
+        # 把 dn_query 拆出来
         (all_layers_matching_cls_scores, all_layers_matching_bbox_preds,
          all_layers_denoising_cls_scores, all_layers_denoising_bbox_preds) = \
             self.split_outputs(
